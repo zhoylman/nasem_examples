@@ -1,7 +1,7 @@
 
 # NASEM Nonstationary Drought Figure Examples
 
-Two example R scripts produce NASEM-style figures that visualize how **moving 30-year climatologies** change the interpretation of summertime drought thresholds.  
+Two example R scripts produce figures that visualize how **moving 30-year climatologies** change the interpretation of summertime drought thresholds.  
 Both scripts use TerraClimate via Google Earth Engine (rgee), fit moving-window Generalized Logistic distributions to the JAS (Jul–Aug–Sep) water balance (P − PET), and produce a two-panel figure:
 - **A:** 3-panel 30-yr rolling means (pr, PET, P−PET)  
 - **B:** “Slinky” of fitted PDFs colored by the 30-yr normal end year with a historical drought threshold marked.
