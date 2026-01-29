@@ -9,7 +9,6 @@ Both scripts use TerraClimate via Google Earth Engine (rgee), fit moving-window 
 ## Repository contents
 - `nasem_example_1_blaine.R` — Blaine County, Idaho example (D3 → D1 threshold illustration).  
 - `nasem_example_2_palmbeach.R` — Palm Beach County, Florida example (D1 → D3 threshold illustration).  
-- `output/` (recommended) — save figures and CSV outputs here.  
 - External helper functions are sourced from `mco-drought-indicators` in the scripts.
 
 ## Quick summary
@@ -63,21 +62,10 @@ source("nasem_example_2_palmbeach.R")
 - The slinky PDFs show how the distribution of JAS water-balance shifts across moving 30-yr normals.  
 - A single physical deficit may map to different percentiles/categories across windows — illustrating nonstationarity effects.
 
-## Troubleshooting
-- **rgee auth issues:** run `rgee::ee_Auth()` and `rgee::ee_Initialize()` per rgee docs.  
-- **Slow reduceRegion:** increase `scale` or reduce geometry resolution.  
-- **Missing 30-year windows:** early/late years are skipped by `.complete = TRUE` in `slider::slide_index_dbl()`.
-
-## Suggestions (future)
-- Add `run_all.R` to drive both examples with a single config file.  
-- Vendor county GeoJSON into `data/` and save intermediate CSVs to `output/`.  
-- Add a `config.R` or `config.yml` to centralize user/project/path settings.
-
 ## License & attribution
 - TerraClimate data: Abatzoglou et al., 2018 — cite appropriately.  
-- Scripts: add a LICENSE (e.g., MIT) if you want to open-source; otherwise keep internal.
+- Scripts: CC-BY 4.0
 
 ---
 
 Maintainer: Zachary H. Hoylman  
-If you want this README shortened, expanded to include diagrams, or converted to multiple docs (`CONTRIBUTING.md`, `run_all.R`), tell me and I’ll update it.
