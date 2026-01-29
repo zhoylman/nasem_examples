@@ -111,8 +111,8 @@ plot_a_data = rolling_data |>
   mutate(name_clean = factor(case_when(
     variable == "pr" ~ "Total JAS Precipitation (mm)",
     variable == "pet" ~ "Total JAS Reference ET (mm)",
-    variable == "def" ~ "Total JAS Water Deficit (mm)"
-  ), levels = c("Total JAS Precipitation (mm)", "Total JAS Reference ET (mm)", "Total JAS Water Deficit (mm)")))
+    variable == "def" ~ "Total JAS Water Balance (mm)"
+  ), levels = c("Total JAS Precipitation (mm)", "Total JAS Reference ET (mm)", "Total JAS Water Balance (mm)")))
 
 target_breaks = c(1990, 2000, 2010, 2020)
 target_labels = c("1961–1990", "1971–2000", "1981–2010", "1991–2020")
@@ -158,7 +158,7 @@ p2 = ggplot(slinky_data, aes(x = x, y = y, group = year, color = year)) +
     guide = guide_colorbar(title.position = "top", title.hjust = 0.5, barwidth = 20)
   ) +
   theme_bw() +
-  labs(x = "JAS Potential Water Deficit (mm)", y = "Probability Density (PDF)") +
+  labs(x = "JAS Potential Water Balance (mm; P-ETo)", y = "Probability Density (PDF)") +
   # Note: Adjusting annotation X positions for seasonal magnitudes
   annotate("segment", x = -400, xend = -500, y = 0, yend = 0, arrow = arrow(length = unit(0.3, "cm"))) +
   annotate("text", x = -450, y = 0.001, label = "Delta*t", parse = TRUE, size = 6) +
@@ -193,7 +193,7 @@ plot_row <- plot_grid(
   ncol = 2, rel_widths = c(1, 1.8), align = 'v', axis = 'lr'
 )
 
-caption_text <- "This analysis extracts 67 years of July–September (JAS) climate data to calculate 30-year rolling precipitation, reference ET, and potential water deficit (P-ETo), fitting\nthe deficit to Generalized Logistic distributions to visualize shifting hydroclimatic conditions in Blaine County. Data Source: TerraClimate (Abatzoglou et al., 2018)"
+caption_text <- "This analysis extracts 67 years of July–September (JAS) climate data to calculate 30-year rolling precipitation, reference ET, and potential water balance (P-ETo), fitting\nP-ETo to Generalized Logistic distributions to visualize shifting hydroclimatic conditions in Blaine County. Data Source: TerraClimate (Abatzoglou et al., 2018)"
 
 caption_gg <- ggdraw() + 
   draw_label(caption_text, size = 9, hjust = 0, x = 0.05) +
