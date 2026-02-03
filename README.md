@@ -1,36 +1,87 @@
-
 # NASEM Nonstationary Drought Figure Examples
 
-Two example R scripts produce figures that visualize how **moving 30-year climatologies** change the interpretation of summertime drought thresholds.  
-Both scripts use TerraClimate via Google Earth Engine (rgee), fit moving-window Generalized Logistic distributions to the JAS (Jul–Aug–Sep) water balance (P − PET), and produce a two-panel figure:
-- **A:** 3-panel 30-yr rolling means (pr, PET, P−PET)  
-- **B:** “Slinky” of fitted PDFs colored by the 30-yr normal end year with a historical drought threshold marked.
+This repository contains **three R scripts** developed for the National Academies of Sciences, Engineering, and Medicine (NASEM) study  
+*The Future of Drought in the United States*.  
+Together, they demonstrate how **nonstationarity and reference period design** influence drought classification, severity, and interpretation.
+
+Two scripts use **observed climate data** (TerraClimate via Google Earth Engine) to illustrate shifting drought thresholds under moving climatologies.  
+A third script uses **synthetic data** to isolate and visualize how different forms of nonstationarity affect drought frequency under a percentile-based framework.
+
+---
 
 ## Repository contents
-- `nasem_example_1_blaine.R` — Blaine County, Idaho example (D3 → D1 threshold illustration).  
-- `nasem_example_2_palmbeach.R` — Palm Beach County, Florida example (D1 → D3 threshold illustration).  
-- External helper functions are sourced from `mco-drought-indicators` in the scripts.
+
+### Empirical examples (moving 30-year climatologies)
+- **`nasem_example_1_blaine.R`**  
+  *Blaine County, Idaho*  
+  Demonstrates how a fixed historical drought threshold (e.g., D3) maps to different percentile classes as the 30-year climatology shifts toward drier conditions.
+
+- **`nasem_example_2_palmbeach.R`**  
+  *Palm Beach County, Florida*  
+  Demonstrates the opposite case, where increasing moisture supply causes a fixed deficit to transition toward wetter percentile classifications (e.g., D1 → D3).
+
+These scripts produce a two-panel figure:
+- **Panel A:** Three stacked time series showing moving 30-year means of  
+  precipitation (P), reference evapotranspiration (ET₀), and water balance (P − ET₀).  
+- **Panel B:** A “slinky” of fitted probability density functions (PDFs) for P − ET₀, colored by the end year of the 30-year normal period, with a historical drought threshold indicated.
+
+---
+
+### Synthetic example (expanding climatology; Figure 6.4)
+- **`nie_etal_example_expanded.R`**  
+
+  A synthetic experiment adapted from **Nie et al. (2025)** that isolates how different forms of nonstationarity influence drought classification under a percentile-based framework.
+
+  This script generates daily “drought index” time series over 100 years and evaluates drought categories using an **expanding reference climatology**:
+  - Minimum baseline: 30 years  
+  - After year 30, each year’s drought classes are computed using the **longest available period of record** (e.g., year 40 uses 40 years; year 100 uses 100 years).
+
+  Four idealized scenarios are illustrated:
+  - **A:** Stationary climate variability  
+  - **B:** Linear drying trend  
+  - **C:** Decadal oscillation (low-frequency variability, no trend)  
+  - **D:** Increasing variance through time  
+
+  Output figures show:
+  - **Left panels:** Daily drought index time series with a seasonal reference signal overlaid  
+  - **Right panels:** Annual days in drought by category (D0–D4), plus cumulative percent of time spent in drought over the final 10 years
+
+---
 
 ## Quick summary
-- **Input:** TerraClimate (`IDAHO_EPSCOR/TERRACLIMATE`) via GEE  
-- **Bands:** `pr` (precipitation) and `pet` (reference ET)  
-- **Period:** 1958–2024 (configurable in the scripts)  
-- **Window:** trailing 30-year windows for rolling means and PDF fits  
-- **Distribution:** Generalized Logistic via `lmomco`  
-- **Output:** PNG figures saved with `ggsave()` (paths configurable)
+
+**Empirical scripts**
+- **Data:** TerraClimate (`IDAHO_EPSCOR/TERRACLIMATE`) via Google Earth Engine  
+- **Variables:**  
+  - `pr` — precipitation  
+  - `pet` — reference evapotranspiration  
+- **Season:** July–September (JAS)  
+- **Period:** 1958–2024 (configurable)  
+- **Method:**  
+  - Trailing 30-year windows  
+  - Generalized Logistic distributions fit via L-moments (`lmomco`)  
+- **Purpose:** Show how shifting climatologies alter drought percentiles and categories
+
+**Synthetic script**
+- **Data:** Fully simulated daily time series  
+- **Classification:** Percentile-based thresholds consistent with the U.S. Drought Monitor  
+- **Reference period:** Expanding climatology with a 30-year minimum  
+- **Purpose:** Isolate effects of trends, oscillations, and variance changes on drought frequency
+
+---
 
 ## Requirements
 
 ### System
-- R (>= 4.0 recommended)
-- Conda with a Python environment accessible to `reticulate`
+- R (≥ 4.0 recommended)
+- Conda / Python environment accessible via `reticulate`
 
 ### R packages
 ```r
 install.packages(c(
-  "reticulate","sf","tidyverse","slider","purrr","lmomco","viridis","cowplot","maps"
+  "reticulate", "sf", "tidyverse", "slider", "purrr",
+  "lmomco", "viridis", "cowplot", "maps", "scales", "shadowtext"
 ))
-# rgee:
 remotes::install_github("r-spatial/rgee")
 ```
 

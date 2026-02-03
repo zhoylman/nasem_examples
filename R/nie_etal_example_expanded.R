@@ -188,14 +188,23 @@ scenario_B = function(df, seed = 2, days_per_year = 365) {
   seasonal + trend + noise
 }
 
-scenario_C = function(df, seed = 3, days_per_year = 365) {
+scenario_C = function(df,
+                      seed = 3,
+                      days_per_year = 365,
+                      decadal_period_years = 10,
+                      decadal_amp = 0.5) {
   set.seed(seed)
-  phase_shift_days_per_year = 3
-  phase_shift_days = phase_shift_days_per_year * (df$year - 1)
-  shifted_doy = df$day_of_year - phase_shift_days
-  seasonal_shifted = 1.0 * sin(2 * pi * shifted_doy / days_per_year - pi / 2)
-  noise = stats::rnorm(n = nrow(df), mean = 0, sd = sqrt(0.4))
-  seasonal_shifted + noise
+  # --- base seasonal cycle (unchanged) ---
+  seasonal =
+    1.0 * sin(2 * pi * df$day_of_year / days_per_year - pi / 2)
+  # --- decadal oscillation (low-frequency modulation) ---
+  # Uses year_frac so oscillation is smooth through time
+  decadal =
+    decadal_amp * sin(2 * pi * df$year_frac / decadal_period_years)
+  # --- stochastic noise ---
+  noise =
+    stats::rnorm(n = nrow(df), mean = 0, sd = sqrt(0.4))
+  seasonal + decadal + noise
 }
 
 scenario_D = function(df, seed = 4, days_per_year = 365, years_total = 100) {
@@ -214,7 +223,7 @@ df_time = make_time_index(years_total = years_total, days_per_year = days_per_ye
 scenarios = list(
   "A: Stationary Climate" = scenario_A(df = df_time, seed = seed, days_per_year = days_per_year),
   "B: Nonstationary Climate with Linear Trend" = scenario_B(df = df_time, seed = seed, days_per_year = days_per_year),
-  "C: Nonstationary Climate with Seasonality Shift" = scenario_C(df = df_time, seed = seed, days_per_year = days_per_year),
+  "C: Nonstationary Climate with Decadal Oscillation" = scenario_C(df = df_time, seed = seed, days_per_year = days_per_year),
   "D: Nonstationary Climate with Increasing Variability Trend" = scenario_D(df = df_time, seed = seed, days_per_year = days_per_year, years_total = years_total)
 )
 
@@ -302,7 +311,7 @@ plot_timeseries = function(df_scen, label, days_per_year = 365) {
       na.rm = TRUE
     ) +
     
-    ggplot2::labs(x = "Years", y = "Drought Index", title = label) +
+    ggplot2::labs(x = "Years", y = "Drought Indicator", title = label) +
     ggplot2::theme_bw() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(face = "bold"),
@@ -362,7 +371,7 @@ plot_drought_bars = function(df_daily_scen, df_days_scen,
     ggplot2::scale_fill_manual(values = drought_colors, drop = FALSE) +
     ggplot2::scale_y_continuous(limits = c(0, days_per_year), breaks = seq(0, days_per_year, 60)) +
     ggplot2::scale_x_continuous(limits = c(1, years_total), breaks = seq(0, years_total, 20)) +
-    ggplot2::labs(x = "Year", y = "Days in drought", fill = NULL) +
+    ggplot2::labs(x = "Year", y = "Days in Drought", fill = NULL) +
     
     # header text
     ggplot2::annotate(
@@ -399,7 +408,7 @@ plot_drought_bars = function(df_daily_scen, df_days_scen,
 scenario_order = c(
   "A: Stationary Climate",
   "B: Nonstationary Climate with Linear Trend",
-  "C: Nonstationary Climate with Seasonality Shift",
+  "C: Nonstationary Climate with Decadal Oscillation",
   "D: Nonstationary Climate with Increasing Variability Trend"
 )
 
