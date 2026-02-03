@@ -43,7 +43,7 @@ These scripts produce a two-panel figure:
   - **D:** Increasing variance through time  
 
   Output figures show:
-  - **Left panels:** Daily drought index time series with a seasonal reference signal overlaid  
+  - **Left panels:** Daily drought indicator time series with a seasonal reference signal overlaid  
   - **Right panels:** Annual days in drought by category (D0–D4), plus cumulative percent of time spent in drought over the final 10 years
 
 Nie, W., Kumar, S. V., & Zhao, L. (2025). Anthropogenic influences on the water cycle amplify uncertainty in drought assessments. One Earth, 8(2).
