@@ -56,7 +56,7 @@ Nie, W., Kumar, S. V., & Zhao, L. (2025). Anthropogenic influences on the water 
 - **Data:** TerraClimate (`IDAHO_EPSCOR/TERRACLIMATE`) via Google Earth Engine  
 - **Variables:**  
   - `pr` — precipitation  
-  - `pet` — reference evapotranspiration  
+  - `pet` — reference evapotranspiration (ASCE Penman-Montieth)
 - **Season:** July–September (JAS)  
 - **Period:** 1958–2024 (configurable)  
 - **Method:**  
