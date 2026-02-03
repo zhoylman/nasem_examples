@@ -32,7 +32,7 @@ These scripts produce a two-panel figure:
 
   A synthetic experiment adapted from **Nie et al. (2025)** that isolates how different forms of nonstationarity influence drought classification under a percentile-based framework.
 
-  This script generates daily “drought index” time series over 100 years and evaluates drought categories using an **expanding reference climatology**:
+  This script generates daily “drought indicator” time series over 100 years and evaluates drought categories using an **expanding reference climatology**:
   - Minimum baseline: 30 years  
   - After year 30, each year’s drought classes are computed using the **longest available period of record** (e.g., year 40 uses 40 years; year 100 uses 100 years).
 
@@ -45,6 +45,8 @@ These scripts produce a two-panel figure:
   Output figures show:
   - **Left panels:** Daily drought index time series with a seasonal reference signal overlaid  
   - **Right panels:** Annual days in drought by category (D0–D4), plus cumulative percent of time spent in drought over the final 10 years
+
+Nie, W., Kumar, S. V., & Zhao, L. (2025). Anthropogenic influences on the water cycle amplify uncertainty in drought assessments. One Earth, 8(2).
 
 ---
 
