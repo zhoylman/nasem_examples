@@ -68,35 +68,81 @@ make_time_index = function(years_total, days_per_year) {
   )
 }
 
-# ---- Percentile-based expanding climatology ----
-# Returns p in [0,1] where small p = unusually low (drier) values.
-percentile_with_min_then_expanding_climatology = function(x, year, min_years = 30) {
-  stopifnot(length(x) == length(year))
-  p = rep(NA_real_, length(x))
-  idx_by_year = split(seq_along(year), year)
+# ---- Percentile-based expanding climatology, computed per Julian day ----
+# date must be Date (or coercible to Date). year is derived from date.
+# parametric, assumes a normal distribution
+percentile_with_min_then_expanding_climatology = function(
+    x,
+    year,
+    day_of_year,
+    min_years = 30,
+    min_n_per_day = 30
+) {
+  stopifnot(
+    length(x) == length(year),
+    length(x) == length(day_of_year)
+  )
+  
+  n = length(x)
+  p = rep(NA_real_, n)
+  
+  idx_by_year = split(seq_len(n), year)
   years_unique = sort(unique(year))
   
-  # fixed baseline years 1..min_years
-  fixed_years = seq_len(min_years)
-  fixed_idx = unlist(idx_by_year[names(idx_by_year) %in% fixed_years])
-  ref_fixed = x[fixed_idx]
-  ecdf_fixed = stats::ecdf(ref_fixed)
+  idx_by_doy = split(seq_len(n), day_of_year)
+  doys = sort(unique(day_of_year))
   
-  # apply fixed baseline to years <= min_years
-  for (y in years_unique[years_unique <= min_years]) {
-    target_idx = idx_by_year[[as.character(y)]]
-    p[target_idx] = ecdf_fixed(x[target_idx])
+  build_params_by_doy = function(ref_idx) {
+    params = vector("list", length(doys))
+    names(params) = doys
+    for (d in doys) {
+      ii = intersect(ref_idx, idx_by_doy[[as.character(d)]])
+      vals = x[ii]
+      vals = vals[is.finite(vals)]
+      if (length(vals) >= min_n_per_day) {
+        params[[as.character(d)]] = list(
+          mu = mean(vals),
+          sd = stats::sd(vals)
+        )
+      } else {
+        params[[as.character(d)]] = NULL
+      }
+    }
+    params
   }
   
-  # expanding reference for years > min_years
+  # ---- fixed baseline ----
+  fixed_years = years_unique[years_unique <= min_years]
+  fixed_idx = unlist(idx_by_year[as.character(fixed_years)], use.names = FALSE)
+  params_fixed = build_params_by_doy(fixed_idx)
+  
+  for (y in fixed_years) {
+    ii_year = idx_by_year[[as.character(y)]]
+    for (d in unique(day_of_year[ii_year])) {
+      pars = params_fixed[[as.character(d)]]
+      if (!is.null(pars) && pars$sd > 0) {
+        ii = ii_year[day_of_year[ii_year] == d]
+        p[ii] = stats::pnorm(x[ii], mean = pars$mu, sd = pars$sd)
+      }
+    }
+  }
+  
+  # ---- expanding baseline ----
   for (y in years_unique[years_unique > min_years]) {
-    base_years = seq_len(y)
-    base_idx = unlist(idx_by_year[names(idx_by_year) %in% base_years])
-    ref_vals = x[base_idx]
-    ecdf_y = stats::ecdf(ref_vals)
-    target_idx = idx_by_year[[as.character(y)]]
-    p[target_idx] = ecdf_y(x[target_idx])
+    base_years = years_unique[years_unique <= y]
+    base_idx = unlist(idx_by_year[as.character(base_years)], use.names = FALSE)
+    params_y = build_params_by_doy(base_idx)
+    
+    ii_year = idx_by_year[[as.character(y)]]
+    for (d in unique(day_of_year[ii_year])) {
+      pars = params_y[[as.character(d)]]
+      if (!is.null(pars) && pars$sd > 0) {
+        ii = ii_year[day_of_year[ii_year] == d]
+        p[ii] = stats::pnorm(x[ii], mean = pars$mu, sd = pars$sd)
+      }
+    }
   }
+  
   p
 }
 
@@ -233,6 +279,7 @@ df_all = purrr::imap_dfr(scenarios, function(tws_raw, scen) {
   p = percentile_with_min_then_expanding_climatology(
     x = tws_raw,
     year = df_time$year,
+    day_of_year = df_time$day_of_year,
     min_years = min_climatology_years
   )
   
@@ -241,10 +288,11 @@ df_all = purrr::imap_dfr(scenarios, function(tws_raw, scen) {
     year = df_time$year,
     day_of_year = df_time$day_of_year,
     year_frac = df_time$year_frac,
-    tws_raw = tws_raw,
-    tws_pct = p,                     # percentile in [0,1]
-    tws_norm_plot = stats::qnorm(p), # for plotting as "standardized" index (NA where p==0 or 1)
-    drought_cat = assign_drought_category_from_percentile(p = p, drought_bins_pct = drought_bins_pct)
+    tws_raw = tws_raw,                      # <-- scenario output (plot this)
+    tws_pct = p,                            # <-- ONLY for drought class logic
+    drought_cat = assign_drought_category_from_percentile(
+      p = p, drought_bins_pct = drought_bins_pct
+    )
   )
 })
 
@@ -257,34 +305,25 @@ df_days = df_all |>
 # ---- Plot builders ----
 plot_timeseries = function(df_scen, label, days_per_year = 365) {
   
-  # REQUIRE: df_scen has day_of_year (carry it through into df_all)
   df_plot = df_scen |>
     dplyr::mutate(
       seasonal_ref = sin(2 * pi * day_of_year / days_per_year - pi / 2)
     )
   
-  # Fit trend ONLY on finite values (qnorm can create +/-Inf)
-  df_fit = df_plot |>
-    dplyr::filter(is.finite(tws_norm_plot), is.finite(year_frac))
+  # Fit trend on raw scenario values
+  fit = stats::lm(tws_raw ~ year_frac, data = df_plot)
+  trend_hat = stats::predict(fit, newdata = df_plot)
+  trend_hat[!is.finite(trend_hat)] = NA_real_
   
-  # Trend prediction across full record (set NA where can't compute)
-  if (nrow(df_fit) < 2) {
-    trend_hat = rep(0, nrow(df_plot))
-  } else {
-    fit = stats::lm(tws_norm_plot ~ year_frac, data = df_fit)
-    trend_hat = stats::predict(fit, newdata = df_plot)
-    trend_hat[!is.finite(trend_hat)] = NA_real_
-  }
-  
-  # Seasonal wave that follows the fitted trend (B will tilt the seasonal line)
+  # Optional: seasonal reference riding on the fitted trend (keeps your old style)
   df_plot = df_plot |>
     dplyr::mutate(seasonal_trended = seasonal_ref + trend_hat)
   
   ggplot2::ggplot(df_plot, ggplot2::aes(x = year_frac)) +
     
-    # Daily drought index
+    # Daily scenario signal (THIS is what you want to plot)
     ggplot2::geom_line(
-      ggplot2::aes(y = tws_norm_plot),
+      ggplot2::aes(y = tws_raw),
       linewidth = 0.25,
       alpha = 0.35,
       color = "#2F5D8A",
@@ -302,7 +341,7 @@ plot_timeseries = function(df_scen, label, days_per_year = 365) {
     
     # Linear trend line
     ggplot2::geom_smooth(
-      ggplot2::aes(y = tws_norm_plot),
+      ggplot2::aes(y = tws_raw),
       method = "lm",
       linetype = "dashed",
       linewidth = 0.3,
@@ -363,11 +402,11 @@ plot_drought_bars = function(df_daily_scen, df_days_scen,
       ),
       
       x = 2,
-      y = 265 - (dplyr::row_number() - 1) * (days_per_year * 0.08)
+      y = 265 - (dplyr::row_number() - 1) * (days_per_year * 0.12)
     )
   
   ggplot2::ggplot(df_complete, ggplot2::aes(x = year, y = days, fill = drought_cat)) +
-    ggplot2::geom_col(width = 0.9) +
+    ggplot2::geom_col(width = 1) +
     ggplot2::scale_fill_manual(values = drought_colors, drop = FALSE) +
     ggplot2::scale_y_continuous(limits = c(0, days_per_year), breaks = seq(0, days_per_year, 60)) +
     ggplot2::scale_x_continuous(limits = c(1, years_total), breaks = seq(0, years_total, 20)) +
@@ -377,11 +416,15 @@ plot_drought_bars = function(df_daily_scen, df_days_scen,
     ggplot2::annotate(
       "text",
       x = 2,
-      y = 300,
-      label = paste0("Percent of Time in Drought\n(Last ", last_years, " Years)"),
-      hjust = 0, vjust = 0,
-      fontface = "bold", size = 3, color = "black"
-    ) +
+      y = 295,
+      label = paste0("Time in Drought\n(Last ", last_years, " Years)"),
+      hjust = 0,
+      vjust = 0,
+      fontface = "bold",
+      size = 3.5,
+      color = "black",
+      lineheight = 0.9
+    )+
     
     # class percentages
     shadowtext::geom_shadowtext(
@@ -389,7 +432,7 @@ plot_drought_bars = function(df_daily_scen, df_days_scen,
       ggplot2::aes(x = x, y = y, label = label, color = color_key),
       inherit.aes = FALSE,
       hjust = 0,
-      size = 3,
+      size = 3.5,
       fontface = "bold",
       bg.color = "black",   # outline color
       bg.r = 0.05           
@@ -449,6 +492,6 @@ final = cowplot::plot_grid(
 # ---- Save ----
 out_file = "~/nasem_examples/figs/nie_etal_example_expanded.png"
 dir.create(dirname(out_file), showWarnings = FALSE, recursive = TRUE)
-ggplot2::ggsave(filename = out_file, plot = final, width = 12, height = 8, dpi = 300, bg = "white")
+ggplot2::ggsave(filename = out_file, plot = final, width = 10, height = 8, dpi = 600, bg = "white")
 
 message("Saved: ", out_file)
