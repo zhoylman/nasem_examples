@@ -267,7 +267,7 @@ scenario_D = function(df, seed = 4, days_per_year = 365, years_total = 100) {
 df_time = make_time_index(years_total = years_total, days_per_year = days_per_year)
 
 scenarios = list(
-  "A: Stationary Climate" = scenario_A(df = df_time, seed = seed, days_per_year = days_per_year),
+  "A: Stationary Climate with Random Variability" = scenario_A(df = df_time, seed = seed, days_per_year = days_per_year),
   "B: Nonstationary Climate with Linear Trend" = scenario_B(df = df_time, seed = seed, days_per_year = days_per_year),
   "C: Nonstationary Climate with Decadal Oscillation" = scenario_C(df = df_time, seed = seed, days_per_year = days_per_year),
   "D: Nonstationary Climate with Increasing Variability Trend" = scenario_D(df = df_time, seed = seed, days_per_year = days_per_year, years_total = years_total)
@@ -308,48 +308,52 @@ plot_timeseries = function(df_scen, label, days_per_year = 365) {
   df_plot = df_scen |>
     dplyr::mutate(
       seasonal_ref = sin(2 * pi * day_of_year / days_per_year - pi / 2)
-    )
+    ) |>
+    mutate(year_frac = year_frac - min(year_frac))
   
-  # Fit trend on raw scenario values
-  fit = stats::lm(tws_raw ~ year_frac, data = df_plot)
-  trend_hat = stats::predict(fit, newdata = df_plot)
-  trend_hat[!is.finite(trend_hat)] = NA_real_
+  # Always fit linear trend for dashed line
+  fit_lm = stats::lm(tws_raw ~ year_frac, data = df_plot)
+  trend_hat = stats::predict(fit_lm, newdata = df_plot)
   
-  # Optional: seasonal reference riding on the fitted trend (keeps your old style)
-  df_plot = df_plot |>
-    dplyr::mutate(seasonal_trended = seasonal_ref + trend_hat)
+  # If this is the decadal scenario, estimate the low-frequency baseline and add it
+  if (grepl("^C:", label)) {
+    
+    decadal_period_years = 10
+    decadal_amp = 0.5
+    
+    df_plot = df_plot |>
+      dplyr::mutate(
+        decadal_ref = decadal_amp * sin(2 * pi * year_frac / decadal_period_years),
+        seasonal_trended = seasonal_ref + decadal_ref
+      )
+    
+  } else {
+    
+    df_plot = df_plot |>
+      dplyr::mutate(seasonal_trended = seasonal_ref + trend_hat)
+  }
   
   ggplot2::ggplot(df_plot, ggplot2::aes(x = year_frac)) +
-    
-    # Daily scenario signal (THIS is what you want to plot)
     ggplot2::geom_line(
       ggplot2::aes(y = tws_raw),
       linewidth = 0.25,
       alpha = 0.35,
-      color = "#2F5D8A",
-      na.rm = TRUE
+      color = "#2F5D8A"
     ) +
-    
-    # Seasonal reference signal riding on the trend
     ggplot2::geom_line(
       ggplot2::aes(y = seasonal_trended),
       linewidth = 0.25,
       color = "black",
-      alpha = 0.6,
-      na.rm = TRUE
+      alpha = 0.6
     ) +
-    
-    # Linear trend line
     ggplot2::geom_smooth(
       ggplot2::aes(y = tws_raw),
       method = "lm",
       linetype = "dashed",
       linewidth = 0.3,
       color = "grey40",
-      se = FALSE,
-      na.rm = TRUE
+      se = FALSE
     ) +
-    
     ggplot2::labs(x = "Years", y = "Drought Indicator", title = label) +
     ggplot2::theme_bw() +
     ggplot2::theme(
@@ -357,7 +361,6 @@ plot_timeseries = function(df_scen, label, days_per_year = 365) {
       panel.grid.minor = ggplot2::element_blank()
     )
 }
-
 plot_drought_bars = function(df_daily_scen, df_days_scen,
                              years_total, drought_bins_pct,
                              drought_colors, days_per_year,
@@ -449,7 +452,7 @@ plot_drought_bars = function(df_daily_scen, df_days_scen,
 
 # ---- Assemble 4x2 layout ----
 scenario_order = c(
-  "A: Stationary Climate",
+  "A: Stationary Climate with Random Variability",
   "B: Nonstationary Climate with Linear Trend",
   "C: Nonstationary Climate with Decadal Oscillation",
   "D: Nonstationary Climate with Increasing Variability Trend"
