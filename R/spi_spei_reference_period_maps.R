@@ -128,7 +128,83 @@ make_panel = function(raster, counties, states, xlim, ylim, subtitle) {
     labs(title = subtitle) +
     theme_bw(base_size = 14) +
     theme(
-      plot.title = element_text(size = 18, hjust = 0.5, margin = margin(t = 0, b = 2)),
+      plot.title = element_text(size = 16, hjust = 0.5, lineheight = 1.1,
+                                margin = margin(t = 0, b = 2)),
+      axis.text  = element_blank(),
+      axis.ticks = element_blank(),
+      axis.title = element_blank(),
+      panel.grid = element_blank(),
+      panel.border = element_rect(color = "grey30", linewidth = 0.5),
+      plot.margin = margin(0, 4, 0, 4)
+    )
+}
+
+# ------------------------------------------------------------------------------
+# DIFFERENCE MAP PANEL
+# ------------------------------------------------------------------------------
+make_diff_panel = function(r_contemp, r_full, counties, states, xlim, ylim,
+                           subtitle = "Difference\n(Contemporary \u2212 Full Record)") {
+
+  # Classify both into USDM categories (1 = D4 ... 6 = Normal ... 11 = W4)
+  rcl = matrix(c(
+    -Inf,   -2.054, 1,
+    -2.054, -1.644, 2,
+    -1.644, -1.281, 3,
+    -1.281, -0.842, 4,
+    -0.842, -0.524, 5,
+    -0.524,  0.524, 6,
+     0.524,  0.842, 7,
+     0.842,  1.281, 8,
+     1.281,  1.644, 9,
+     1.644,  2.054, 10,
+     2.054,  Inf,   11
+  ), ncol = 3, byrow = TRUE)
+
+  r_contemp_cls = terra::classify(r_contemp, rcl, include.lowest = TRUE)
+  r_full_cls    = terra::classify(r_full, rcl, include.lowest = TRUE)
+
+  # Difference: negative = contemporary is drier (more severe drought)
+  r_diff = r_contemp_cls - r_full_cls
+  names(r_diff) = "diff"
+
+  # Classify into discrete class-difference bins (-2 to +2)
+  diff_rcl = matrix(c(
+    -Inf,  -1.5, 1,
+    -1.5,  -0.5, 2,
+    -0.5,   0.5, 3,
+     0.5,   1.5, 4,
+     1.5,   Inf, 5
+  ), ncol = 3, byrow = TRUE)
+
+  r_diff_cat = terra::classify(r_diff, diff_rcl, include.lowest = TRUE)
+
+  diff_labels = c(
+    "\u2264 -2", "-1", "0", "+1", "\u2265 +2"
+  )
+  levels(r_diff_cat) = data.frame(id = 1:5, category = diff_labels)
+
+  diff_colors = c(
+    "#d7191c", "#fdae61",
+    "#f7f7f7",
+    "#abd9e9", "#2c7bb6"
+  )
+
+  ggplot() +
+    tidyterra::geom_spatraster(data = r_diff_cat) +
+    geom_sf(data = counties, fill = NA, color = "grey50", linewidth = 0.08) +
+    geom_sf(data = states, fill = NA, color = "grey20", linewidth = 0.4) +
+    coord_sf(xlim = xlim, ylim = ylim, expand = FALSE) +
+    scale_fill_manual(
+      values = setNames(diff_colors, diff_labels),
+      na.value = "grey90",
+      drop = FALSE,
+      guide = "none"
+    ) +
+    labs(title = subtitle) +
+    theme_bw(base_size = 14) +
+    theme(
+      plot.title = element_text(size = 16, hjust = 0.5, lineheight = 1.1,
+                                margin = margin(t = 0, b = 2)),
       axis.text  = element_blank(),
       axis.ticks = element_blank(),
       axis.title = element_blank(),
@@ -157,8 +233,39 @@ make_legend_bar = function() {
     ) +
     theme_void(base_size = 14) +
     theme(
-      axis.text.x = element_text(color = "black", size = 10, angle = 30,
+      axis.text.x = element_text(color = "black", size = 11, angle = 30,
                                  hjust = 1, vjust = 1, lineheight = 0.85,
+                                 face = "bold",
+                                 margin = margin(t = 4)),
+      legend.position = "none",
+      plot.margin = margin(0, 20, 6, 20)
+    )
+}
+
+# ------------------------------------------------------------------------------
+# DIFFERENCE LEGEND BAR (matching style of USDM legend)
+# ------------------------------------------------------------------------------
+make_diff_legend_bar = function() {
+  diff_labels = c("\u2264 -2", "-1", "0", "+1", "\u2265 +2")
+  diff_colors = c("#d7191c", "#fdae61", "#f7f7f7", "#abd9e9", "#2c7bb6")
+
+  legend_df = data.frame(
+    x = 1:5,
+    fill = factor(diff_labels, levels = diff_labels)
+  )
+
+  ggplot(legend_df, aes(x = x, y = 1, fill = fill)) +
+    geom_tile(width = 1, height = 2, color = "grey40", linewidth = 0.3) +
+    scale_fill_manual(values = setNames(diff_colors, diff_labels), drop = FALSE) +
+    scale_x_continuous(
+      breaks = 1:5,
+      labels = diff_labels,
+      expand = c(0.02, 0)
+    ) +
+    theme_void(base_size = 14) +
+    theme(
+      axis.text.x = element_text(color = "black", size = 11, angle = 0,
+                                 hjust = 0.5, vjust = 1, lineheight = 0.85,
                                  face = "bold",
                                  margin = margin(t = 4)),
       legend.position = "none",
@@ -169,26 +276,31 @@ make_legend_bar = function() {
 # ------------------------------------------------------------------------------
 # HELPER: assemble a two-panel figure with title, subtitle, and legend
 # ------------------------------------------------------------------------------
-make_figure = function(p_left, p_right, main_title, sub_title,
-                       legend_rel = 0.2) {
+make_figure = function(p_left, p_right, p_diff, main_title, sub_title) {
 
   title_grob = ggdraw() +
-    draw_label(main_title, fontface = "bold", size = 24, hjust = 0.5)
+    draw_label(main_title, fontface = "bold", size = 20, hjust = 0.5)
 
   subtitle_grob = ggdraw() +
     draw_label(sub_title, fontface = "italic", size = 14, hjust = 0.5,
                color = "grey30")
 
-  maps = plot_grid(p_left, p_right, ncol = 2, align = "hv")
-  legend = make_legend_bar()
+  # Three panels in a row
+  maps_row = plot_grid(p_left, p_right, p_diff, ncol = 3, align = "hv")
+
+  # Both legends side by side, aligned
+  usdm_leg = make_legend_bar()
+  diff_leg = make_diff_legend_bar()
+  legend_row = plot_grid(usdm_leg, diff_leg, ncol = 2, align = "hv",
+                         rel_widths = c(0.65, 0.35))
 
   plot_grid(
     title_grob,
     subtitle_grob,
-    maps,
-    legend,
+    maps_row,
+    legend_row,
     ncol = 1,
-    rel_heights = c(0.08, 0.07, 1, legend_rel)
+    rel_heights = c(0.05, 0.04, 1, 0.22)
   )
 }
 
@@ -203,26 +315,30 @@ spi_ylim = c(33.0, 39.5)
 p_spi_contemp = make_panel(
   raster = spi_rolling30, counties = counties_sf, states = states_sf,
   xlim = spi_xlim, ylim = spi_ylim,
-  subtitle = "Contemporary Baseline (1997\u20132026)"
+  subtitle = "Contemporary Baseline\n(1997\u20132026)"
 )
 
 p_spi_full = make_panel(
   raster = spi_full, counties = counties_sf, states = states_sf,
   xlim = spi_xlim, ylim = spi_ylim,
-  subtitle = "Full Record Baseline (1979\u20132026)"
+  subtitle = "Full Period-of-Record Baseline\n(1979\u20132026)"
+)
+
+p_spi_diff = make_diff_panel(
+  r_contemp = spi_rolling30, r_full = spi_full,
+  counties = counties_sf, states = states_sf,
+  xlim = spi_xlim, ylim = spi_ylim
 )
 
 fig_9_1 = make_figure(
-  p_spi_contemp, p_spi_full,
+  p_spi_contemp, p_spi_full, p_spi_diff,
   main_title = "90-day SPI on March 18, 2026",
-  sub_title  = "Standardized Precipitation Index \u2014 Mid-South United States",
-  legend_rel = 0.3
+  sub_title  = "Standardized Precipitation Index \u2014 Mid-South United States"
 )
 
 ggsave(
   filename = file.path(OUT_DIR, "fig_9-1_spi_reference_periods.png"),
-  plot = fig_9_1, width = 10, height = 6, dpi = 300, bg = "white"
-
+  plot = fig_9_1, width = 14, height = 6.5, dpi = 300, bg = "white"
 )
 message("Saved: fig_9-1_spi_reference_periods.png")
 
@@ -233,31 +349,45 @@ message("Creating Figure 9-2: SPEI Reference Period Comparison...")
 
 ne_bbox   = states_sf |> filter(STUSPS == "NE") |> st_bbox()
 spei_xlim = c(ne_bbox["xmin"] - 0.5, ne_bbox["xmax"] + 0.5)
-spei_ylim = c(ne_bbox["ymin"] - 0.5, ne_bbox["ymax"] + 0.5)
+spei_ylim = c(ne_bbox["ymin"] - 1.5, ne_bbox["ymax"] + 1.5)
 
 p_spei_contemp = make_panel(
   raster = spei_rolling30, counties = counties_sf, states = states_sf,
   xlim = spei_xlim, ylim = spei_ylim,
-  subtitle = "Contemporary Baseline (1997\u20132026)"
+  subtitle = "Contemporary Baseline\n(1997\u20132026)"
 )
 
 p_spei_full = make_panel(
   raster = spei_full, counties = counties_sf, states = states_sf,
   xlim = spei_xlim, ylim = spei_ylim,
-  subtitle = "Full Record Baseline (1979\u20132026)"
+  subtitle = "Full Period-of-Record Baseline\n(1979\u20132026)"
+)
+
+p_spei_diff = make_diff_panel(
+  r_contemp = spei_rolling30, r_full = spei_full,
+  counties = counties_sf, states = states_sf,
+  xlim = spei_xlim, ylim = spei_ylim
 )
 
 fig_9_2 = make_figure(
-  p_spei_contemp, p_spei_full,
+  p_spei_contemp, p_spei_full, p_spei_diff,
   main_title = "90-day SPEI on March 18, 2026",
-  sub_title  = "Standardized Precipitation Evapotranspiration Index \u2014 Nebraska",
-  legend_rel = 0.3
+  sub_title  = "Standardized Precipitation Evapotranspiration Index \u2014 Nebraska"
 )
 
 ggsave(
   filename = file.path(OUT_DIR, "fig_9-2_spei_reference_periods.png"),
-  plot = fig_9_2, width = 10, height = 5.5, dpi = 300, bg = "white"
+  plot = fig_9_2, width = 14, height = 6.5, dpi = 300, bg = "white"
 )
-message("Saved: fig_9-2_spei_reference_periods.png")
+
+# Trim white space from both figures
+spi_path  = file.path(OUT_DIR, "fig_9-1_spi_reference_periods.png")
+spei_path = file.path(OUT_DIR, "fig_9-2_spei_reference_periods.png")
+
+system(paste0("magick ", spi_path, " -fuzz 5% -trim +repage -bordercolor white -border 15 ", spi_path))
+system(paste0("magick ", spei_path, " -fuzz 5% -trim +repage -bordercolor white -border 15 ", spei_path))
+
+message("Saved and trimmed: fig_9-1_spi_reference_periods.png")
+message("Saved and trimmed: fig_9-2_spei_reference_periods.png")
 
 message("Done!")
